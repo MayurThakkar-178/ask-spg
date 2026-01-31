@@ -33,15 +33,39 @@ def main():
         
         # Process Images
         if uploaded_files:
-            with st.spinner(f"Processing {len(uploaded_files)} images..."):
-                for uploaded_file in uploaded_files:
-                    try:
-                        image = Image.open(uploaded_file)
-                        # Perform OCR
-                        text = pytesseract.image_to_string(image)
-                        all_text += text + "\n"
-                    except Exception as e:
-                        st.error(f"Error processing {uploaded_file.name}: {e}")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            total_files = len(uploaded_files)
+            
+            for i, uploaded_file in enumerate(uploaded_files):
+                try:
+                    status_text.text(f"Processing image {i+1} of {total_files}...")
+                    image = Image.open(uploaded_file)
+                    
+                    # Optimization 1: Convert to Grayscale
+                    image = image.convert('L')
+                    
+                    # Optimization 2: Resize if too large (e.g., width > 1800)
+                    # This significantly speeds up OCR without losing much accuracy for text
+                    max_width = 1800
+                    if image.width > max_width:
+                        ratio = max_width / image.width
+                        new_height = int(image.height * ratio)
+                        image = image.resize((max_width, new_height))
+                        
+                    # Perform OCR
+                    text = pytesseract.image_to_string(image)
+                    all_text += text + "\n"
+                    
+                except Exception as e:
+                    st.error(f"Error processing {uploaded_file.name}: {e}")
+                
+                # Update progress
+                progress_bar.progress((i + 1) / total_files)
+            
+            status_text.text("Processing complete!")
+            progress_bar.empty()
 
         # Extract Emails
         emails = extract_emails(all_text)
